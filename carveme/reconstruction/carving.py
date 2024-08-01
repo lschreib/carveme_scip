@@ -32,12 +32,12 @@ def inactive_reactions(model, solution):
         if len(set(neighbors) - set(inactive)) == 1:
             inactive_ext.append(r_id)
 
-    return set(inactive + inactive_ext)
+    return inactive + inactive_ext
 
 
 def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM=1e3, default_score=-1.0,
                      uptake_score=0.0, soft_score=1.0, soft_constraints=None, hard_constraints=None,
-                     ref_reactions=None, ref_score=0.0, solver=None, debug_output=None):
+                     ref_reactions=None, ref_score=0.0, solver=None, debug_output=None, time_limit=600):
     """ Apply minmax reduction algorithm (MILP).
 
     Computes a binary reaction vector that optimizes the agreement with reaction scores (maximizes positive scores,
@@ -56,7 +56,11 @@ def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM
         soft_score (float): score for soft constraints (default: 1.0)
         soft_constraints (dict): dictionary from reaction id to expected flux direction (-1, 1, 0)
         hard_constraints (dict): dictionary of flux bounds
+        ref_reactions (dict): dictionary of reference reactions and their scores
+        ref_score (float): score for reference reactions (default: 0.0)
         solver (Solver): solver instance (optional)
+        debug_output (str): file path for debug output (optional)
+        time_limit (int): time limit for the solver (default: 600 seconds)
 
     Returns:
         Solution: optimization result
@@ -67,6 +71,7 @@ def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM
 
     objective = {}
 
+    scores = scores.copy()
     reactions = list(scores.keys())
 
     if soft_constraints:
@@ -95,8 +100,8 @@ def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM
     if not hasattr(solver, '_carveme_flag'):
         solver._carveme_flag = True
 
-        solver.add_constraint('min_growth', {model.biomass_reaction: 1}, '>', min_growth)
-        solver.add_constraint('min_atpm', {'R_ATPM': 1}, '>', min_atpm)
+        solver.add_constraint('min_growth', {model.biomass_reaction: 1}, '>', min_growth, update=False)
+        solver.add_constraint('min_atpm', {'R_ATPM': 1}, '>', min_atpm, update=False)
 
         solver.neg_vars = []
         solver.pos_vars = []
@@ -104,37 +109,37 @@ def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM
         for r_id in reactions:
             if model.reactions[r_id].lb is None or model.reactions[r_id].lb < 0:
                 y_r = 'yr_' + r_id
-                solver.add_variable(y_r, 0, 1, vartype=VarType.BINARY)
+                solver.add_variable(y_r, 0, 1, vartype=VarType.BINARY, update=False)
                 solver.neg_vars.append(y_r)
             if model.reactions[r_id].ub is None or model.reactions[r_id].ub > 0:
                 y_f = 'yf_' + r_id
-                solver.add_variable(y_f, 0, 1, vartype=VarType.BINARY)
+                solver.add_variable(y_f, 0, 1, vartype=VarType.BINARY, update=False)
                 solver.pos_vars.append(y_f)
 
         if uptake_score != 0:
             for r_id in model.reactions:
                 if r_id.startswith('R_EX'):
-                    solver.add_variable('y_' + r_id, 0, 1, vartype=VarType.BINARY)
+                    solver.add_variable('y_' + r_id, 0, 1, vartype=VarType.BINARY, update=False)
 
         solver.update()
 
         for r_id in reactions:
             y_r, y_f = 'yr_' + r_id, 'yf_' + r_id
             if y_r in solver.neg_vars and y_f in solver.pos_vars:
-                solver.add_constraint('lb_' + r_id, {r_id: 1, y_f: -eps, y_r: bigM}, '>', 0)
-                solver.add_constraint('ub_' + r_id, {r_id: 1, y_f: -bigM, y_r: eps}, '<', 0)
-                solver.add_constraint('rev_' + r_id, {y_f: 1, y_r: 1}, '<', 1)
+                solver.add_constraint('lb_' + r_id, {r_id: 1, y_f: -eps, y_r: bigM}, '>', 0, update=False)
+                solver.add_constraint('ub_' + r_id, {r_id: 1, y_f: -bigM, y_r: eps}, '<', 0, update=False)
+                solver.add_constraint('rev_' + r_id, {y_f: 1, y_r: 1}, '<', 1, update=False)
             elif y_f in solver.pos_vars:
-                solver.add_constraint('lb_' + r_id, {r_id: 1, y_f: -eps}, '>', 0)
-                solver.add_constraint('ub_' + r_id, {r_id: 1, y_f: -bigM}, '<', 0)
+                solver.add_constraint('lb_' + r_id, {r_id: 1, y_f: -eps}, '>', 0, update=False)
+                solver.add_constraint('ub_' + r_id, {r_id: 1, y_f: -bigM}, '<', 0, update=False)
             elif y_r in solver.neg_vars:
-                solver.add_constraint('lb_' + r_id, {r_id: 1, y_r: bigM}, '>', 0)
-                solver.add_constraint('ub_' + r_id, {r_id: 1, y_r: eps}, '<', 0)
+                solver.add_constraint('lb_' + r_id, {r_id: 1, y_r: bigM}, '>', 0, update=False)
+                solver.add_constraint('ub_' + r_id, {r_id: 1, y_r: eps}, '<', 0, update=False)
 
         if uptake_score != 0:
             for r_id in model.reactions:
                 if r_id.startswith('R_EX'):
-                    solver.add_constraint('lb_' + r_id, {r_id: 1, 'y_' + r_id: bigM}, '>', 0)
+                    solver.add_constraint('lb_' + r_id, {r_id: 1, 'y_' + r_id: bigM}, '>', 0, update=False)
 
         solver.update()
 
@@ -172,23 +177,24 @@ def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM
             if r_id.startswith('R_EX') and r_id not in soft_constraints:
                 objective['y_' + r_id] = uptake_score
 
-    solver.set_objective(objective, minimize=False)
+    solver.set_objective(linear=objective, minimize=False)
 
     if debug_output:
         solver.write_to_file(debug_output + "_milp_problem.lp")
 
     if solver.__class__.__name__ == 'SCIPSolver':
-        solver.problem.setParam('limits/time', 600)
+        solver.problem.setParam('limits/time', time_limit)
         solver.problem.setParam('limits/gap', 0.001)
-    
-    solution = solver.solve(allow_suboptimal=True)
+        solution = solver.solve(suboptimal=True)
+    else:
+        solution = solver.solve()
 
     return solution
 
 
 def carve_model(model, reaction_scores, inplace=True, default_score=-1.0, uptake_score=0.0, soft_score=1.0,
                 soft_constraints=None, hard_constraints=None, ref_model=None, ref_score=0.0, init_env=None,
-                debug_output=None, verbose=False):
+                debug_output=None, time_limit=600):
     """ Reconstruct a metabolic model using the CarveMe approach.
 
     Args:
@@ -203,6 +209,7 @@ def carve_model(model, reaction_scores, inplace=True, default_score=-1.0, uptake
         soft_constraints (dict): dictionary from reaction id to expected flux direction (-1, 1, 0)
         hard_constraints (dict): dictionary of flux bounds
         init_env (Environment): initialize final model with given Environment (optional)
+        time_limit (int): time limit for the solver (default: 600 seconds)
 
     Returns:
         CBModel: reconstructed model
@@ -232,25 +239,13 @@ def carve_model(model, reaction_scores, inplace=True, default_score=-1.0, uptake
 
     sol = minmax_reduction(model, scores, default_score=default_score, uptake_score=uptake_score, soft_score=soft_score,
                            soft_constraints=soft_constraints, hard_constraints=hard_constraints,
-                           ref_reactions=ref_reactions, ref_score=ref_score, debug_output=debug_output)
+                           ref_reactions=ref_reactions, ref_score=ref_score, debug_output=debug_output, time_limit=time_limit)
 
-    if sol.status == Status.OPTIMAL or sol.status == Status.SUBOPTIMAL:
+    if sol.status == Status.OPTIMAL:
         inactive = inactive_reactions(model, sol)
     else:
         print("MILP solver failed: {}".format(sol.message))
         return
-
-    if verbose:
-        pos_score = {r_id for r_id, val in scores.items() if val > 0}
-        neg_score = {r_id for r_id, val in scores.items() if val < 0}
-        active = set(model.reactions) - inactive
-        n_ai = len(pos_score & active) 
-        n_ae = len(pos_score & inactive) 
-        n_ni = len(neg_score & active) 
-        n_ne = len(neg_score & inactive)
-        print('Reaction consensus: (A)nnotated, (N)on-annotated, (I)ncluded, (E)xcluded')
-        print(f'AI: {n_ai:4n} AE: {n_ae:4n}')
-        print(f'NI: {n_ni:4n} NE: {n_ne:4n}')
 
     if debug_output:
         pd.DataFrame.from_dict(sol.values, orient='index').to_csv(debug_output + '_milp_solution.tsv',
@@ -276,7 +271,7 @@ def carve_model(model, reaction_scores, inplace=True, default_score=-1.0, uptake
     return model
 
 
-def build_ensemble(model, reaction_scores, size, init_env=None):
+def build_ensemble(model, reaction_scores, size, init_env=None, time_limit=600):
     """ Reconstruct a model ensemble using the CarveMe approach.
 
     Args:
@@ -286,6 +281,7 @@ def build_ensemble(model, reaction_scores, size, init_env=None):
         outputfile (str): write model to SBML file (optional)
         flavor (str): SBML flavor ('cobra' or 'fbc2', optional)
         init_env (Environment): initialize final model with given Environment (optional)
+        time_limit (int): time limit for the solver (default: 600 seconds)
 
     Returns:
         EnsembleModel: reconstructed ensemble
@@ -304,9 +300,9 @@ def build_ensemble(model, reaction_scores, size, init_env=None):
         all_scores = dict(zip(unscored, random_scores))
         all_scores.update(scores)
 
-        sol = minmax_reduction(model, all_scores, solver=solver)
+        sol = minmax_reduction(model, all_scores, solver=solver, time_limit=time_limit)
 
-        if sol.status == Status.OPTIMAL or sol.status == Status.SUBOPTIMAL:
+        if sol.status == Status.OPTIMAL:
             for r_id in model.reactions:
                 active = (abs(sol.values[r_id]) >= 1e-6
                           or (sol.values.get('yf_' + r_id, 0) > 0.5)
