@@ -45,7 +45,7 @@ def build_model_id(name):
 def maincall(inputfile, input_type='protein', outputfile=None, diamond_args=None, universe=None, universe_file=None,
          ensemble_size=None, verbose=False, debug=False, flavor=None, gapfill=None, blind_gapfill=False, init=None,
          mediadb=None, default_score=None, uptake_score=None, soft_score=None, soft=None, hard=None, reference=None,
-         ref_score=None, recursive_mode=False):
+         ref_score=None, recursive_mode=False, time_limit=600):
 
     if recursive_mode:
         model_id = os.path.splitext(os.path.basename(inputfile))[0]
@@ -204,14 +204,14 @@ def maincall(inputfile, input_type='protein', outputfile=None, diamond_args=None
         model = carve_model(universe_model, scores, inplace=(not gapfill), default_score=default_score,
                             uptake_score=uptake_score, soft_score=soft_score, soft_constraints=soft_constraints,
                             hard_constraints=hard_constraints, ref_model=ref_model, ref_score=ref_score,
-                            init_env=init_env, debug_output=debug_output, verbose=verbose)
+                            init_env=init_env, debug_output=debug_output, verbose=verbose, time_limit=time_limit)
         annotate_genes(model, gene2gene, gene_annotations)
 
     else:
         if verbose:
             print('Building an ensemble of', ensemble_size, 'models')
 
-        ensemble = build_ensemble(universe_model, scores, ensemble_size, init_env=init_env)
+        ensemble = build_ensemble(universe_model, scores, ensemble_size, init_env=init_env, time_limit=time_limit)
 
         annotate_genes(ensemble.model, gene2gene, gene_annotations)
         save_ensemble(ensemble, outputfile, flavor=flavor)
@@ -313,6 +313,8 @@ def main():
 
     parser.add_argument('--blind-gapfill', action='store_true', help=argparse.SUPPRESS)
 
+    parser.add_argument('-t', '--time_limit', type=int, default=600, help="Time limit when using the SCIPSolver (default: 600 seconds)")
+
     args = parser.parse_args()
 
     if args.gapfill and args.ensemble:
@@ -377,7 +379,8 @@ def main():
             soft=args.soft,
             hard=args.hard,
             reference=args.reference,
-            ref_score=args.reference_score
+            ref_score=args.reference_score,
+            time_limit=args.time_limit
         )
 
     else:
@@ -404,7 +407,8 @@ def main():
                 hard=args.hard,
                 reference=args.reference,
                 ref_score=args.reference_score,
-                recursive_mode=True
+                recursive_mode=True,
+                time_limit=args.time_limit
             )
 
         p = Pool()
