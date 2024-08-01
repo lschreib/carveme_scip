@@ -57,9 +57,8 @@ def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM
         soft_constraints (dict): dictionary from reaction id to expected flux direction (-1, 1, 0)
         hard_constraints (dict): dictionary of flux bounds
         solver (Solver): solver instance (optional)
-        debug_output (str): file path for debug output (optional)
         time_limit (int): time limit for the solver (default: 600 seconds)
-
+        
     Returns:
         Solution: optimization result
     """
@@ -235,8 +234,7 @@ def carve_model(model, reaction_scores, inplace=True, default_score=-1.0, uptake
 
     sol = minmax_reduction(model, scores, default_score=default_score, uptake_score=uptake_score, soft_score=soft_score,
                            soft_constraints=soft_constraints, hard_constraints=hard_constraints,
-                           ref_reactions=ref_reactions, ref_score=ref_score, debug_output=debug_output,
-                           time_limit=time_limit)
+                           ref_reactions=ref_reactions, ref_score=ref_score, debug_output=debug_output,time_limit=time_limit)
 
     if sol.status == Status.OPTIMAL or sol.status == Status.SUBOPTIMAL:
         inactive = inactive_reactions(model, sol)
@@ -291,7 +289,7 @@ def build_ensemble(model, reaction_scores, size, init_env=None, time_limit=600):
         flavor (str): SBML flavor ('cobra' or 'fbc2', optional)
         init_env (Environment): initialize final model with given Environment (optional)
         time_limit (int): time limit for the solver (default: 600 seconds)
-
+    
     Returns:
         EnsembleModel: reconstructed ensemble
     """
