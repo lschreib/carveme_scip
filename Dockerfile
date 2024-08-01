@@ -36,13 +36,13 @@ RUN conda config --add channels defaults && \
 
 RUN echo "source activate CarveMe" > ~/.bashrc
 
-COPY carveme_scip-1.6.1.tar.gz /carveme_main/carveme_scip-1.6.1.tar.gz
+COPY carveme_scip-1.6.2.tar.gz /carveme_main/carveme_scip.tar.gz
 
 ENV PATH /opt/conda/envs/CarveMe/bin:$PATH
 
 #Install CarveMe 
 RUN cd /carveme_main/ && \
-    pip install carveme_scip-1.6.1.tar.gz
+    pip install carveme_scip.tar.gz
 
 #Pre-built BIGG DIAMOND database to prevent issues when converting container into Singularity format    
 RUN cd /opt/conda/envs/CarveMe/lib/python3.11/site-packages/carveme/data/generated && \
