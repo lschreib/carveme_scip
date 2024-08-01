@@ -25,7 +25,7 @@ def first_run_check():
     if not os.path.exists(diamond_db):
         print("Running diamond for the first time, please wait while we build the internal database...")
         fasta_file = project_dir + config.get('generated', 'fasta_file')
-        cmd = ['diamond', 'makedb', '--in', fasta_file, '-d', diamond_db[:-5]]
+        cmd = ['diamond', 'makedb', '--threads 4','--in', fasta_file, '-d', diamond_db[:-5]]
         try:
             exit_code = subprocess.call(cmd)
         except OSError:
@@ -43,9 +43,9 @@ def build_model_id(name):
 
 
 def maincall(inputfile, input_type='protein', outputfile=None, diamond_args=None, universe=None, universe_file=None,
-         ensemble_size=None, verbose=False, debug=False, flavor=None, gapfill=None, blind_gapfill=False, init=None,
-         mediadb=None, default_score=None, uptake_score=None, soft_score=None, soft=None, hard=None, reference=None,
-         ref_score=None, recursive_mode=False, time_limit=600):
+             ensemble_size=None, verbose=False, debug=False, flavor=None, gapfill=None, blind_gapfill=False, init=None,
+             mediadb=None, default_score=None, uptake_score=None, soft_score=None, soft=None, hard=None, reference=None,
+             ref_score=None, recursive_mode=False, time_limit=600):
 
     if recursive_mode:
         model_id = os.path.splitext(os.path.basename(inputfile))[0]
@@ -204,7 +204,7 @@ def maincall(inputfile, input_type='protein', outputfile=None, diamond_args=None
         model = carve_model(universe_model, scores, inplace=(not gapfill), default_score=default_score,
                             uptake_score=uptake_score, soft_score=soft_score, soft_constraints=soft_constraints,
                             hard_constraints=hard_constraints, ref_model=ref_model, ref_score=ref_score,
-                            init_env=init_env, debug_output=debug_output, verbose=verbose, time_limit=time_limit)
+                            init_env=init_env, debug_output=debug_output, time_limit=time_limit)
         annotate_genes(model, gene2gene, gene_annotations)
 
     else:
@@ -349,8 +349,8 @@ def main():
 
     if args.solver:
         set_default_solver(args.solver)
-#    else:
-#        set_default_solver(config.get('solver', 'default_solver'))
+    else:
+        set_default_solver(config.get('solver', 'default_solver'))
 
     first_run_check()
 
