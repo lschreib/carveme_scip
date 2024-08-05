@@ -32,7 +32,7 @@ def inactive_reactions(model, solution):
         if len(set(neighbors) - set(inactive)) == 1:
             inactive_ext.append(r_id)
 
-    return inactive + inactive_ext
+    return set(inactive + inactive_ext)
 
 
 def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM=1e3, default_score=-1.0,
@@ -57,6 +57,7 @@ def minmax_reduction(model, scores, min_growth=0.1, min_atpm=0.1, eps=1e-3, bigM
         soft_constraints (dict): dictionary from reaction id to expected flux direction (-1, 1, 0)
         hard_constraints (dict): dictionary of flux bounds
         solver (Solver): solver instance (optional)
+        debug_output (str): file path for debug output (optional)
         time_limit (int): time limit for the solver (default: 600 seconds)
 
     Returns:
@@ -245,7 +246,7 @@ def carve_model(model, reaction_scores, inplace=True, default_score=-1.0, uptake
     if verbose:
         pos_score = {r_id for r_id, val in scores.items() if val > 0}
         neg_score = {r_id for r_id, val in scores.items() if val < 0}
-        active = set(model.reactions) - inactive
+        active = set(model.reactions) - set(inactive)
         n_ai = len(pos_score & active) 
         n_ae = len(pos_score & inactive) 
         n_ni = len(neg_score & active) 
