@@ -204,7 +204,7 @@ def maincall(inputfile, input_type='protein', outputfile=None, diamond_args=None
         model = carve_model(universe_model, scores, inplace=(not gapfill), default_score=default_score,
                             uptake_score=uptake_score, soft_score=soft_score, soft_constraints=soft_constraints,
                             hard_constraints=hard_constraints, ref_model=ref_model, ref_score=ref_score,
-                            init_env=init_env, debug_output=debug_output, time_limit=time_limit)
+                            init_env=init_env, debug_output=debug_output, verbose=verbose, time_limit=time_limit)
         annotate_genes(model, gene2gene, gene_annotations)
 
     else:
@@ -349,8 +349,8 @@ def main():
 
     if args.solver:
         set_default_solver(args.solver)
-    else:
-        set_default_solver(config.get('solver', 'default_solver'))
+#    else:
+#        set_default_solver(config.get('solver', 'default_solver'))
 
     first_run_check()
 
